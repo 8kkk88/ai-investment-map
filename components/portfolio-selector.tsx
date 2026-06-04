@@ -14,14 +14,14 @@ export function PortfolioSelector({
   onChange
 }: PortfolioSelectorProps) {
   return (
-    <label className="flex min-w-0 flex-col gap-1">
+    <label className="flex w-full min-w-0 flex-col gap-1">
       <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-500">
         Portfolio
       </span>
       <select
         value={selectedSlug}
         onChange={(event) => onChange(event.target.value)}
-        className="h-10 rounded-md border border-slate-700/80 bg-slate-950/80 px-3 text-sm font-medium text-slate-100 outline-none transition hover:border-slate-500 focus:border-emerald-400"
+        className="h-10 w-full min-w-0 rounded-md border border-slate-700/80 bg-slate-950/80 px-3 text-sm font-medium text-slate-100 outline-none transition hover:border-slate-500 focus:border-emerald-400"
       >
         {portfolios.map((portfolio) => (
           <option key={portfolio.id} value={portfolio.slug}>

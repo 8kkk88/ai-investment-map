@@ -33,3 +33,12 @@ select {
 ::selection {
   background: rgba(34, 197, 94, 0.35);
 }
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

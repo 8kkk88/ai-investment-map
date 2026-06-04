@@ -2,19 +2,36 @@
 
 import { X } from "lucide-react";
 import { formatCompactCurrency, formatCompactNumber, formatPercent } from "@/lib/format";
-import type { HeatmapAsset } from "@/types/market";
+import type { HeatmapAsset, Timeframe } from "@/types/market";
 
 type AssetDrawerProps = {
   asset: HeatmapAsset | null;
+  timeframe: Timeframe;
+  portfolioName: string;
+  sectorRank: number;
+  sectorPeerCount: number;
   onClose: () => void;
 };
 
-export function AssetDrawer({ asset, onClose }: AssetDrawerProps) {
+export function AssetDrawer({
+  asset,
+  timeframe,
+  portfolioName,
+  sectorRank,
+  sectorPeerCount,
+  onClose
+}: AssetDrawerProps) {
   if (!asset) {
     return null;
   }
 
   const positive = asset.returnPct >= 0;
+  const contribution = (asset.weightPct * asset.returnPct) / 100;
+  const insight =
+    `Contributes ${formatInsightPercent(contribution)} to portfolio return in the ${timeframe} view. ` +
+    (sectorRank
+      ? `Ranked #${sectorRank} of ${sectorPeerCount} sector peers by selected-period return.`
+      : "Sector peer rank is unavailable for this selection.");
 
   return (
     <div className="fixed inset-0 z-50">
@@ -26,14 +43,15 @@ export function AssetDrawer({ asset, onClose }: AssetDrawerProps) {
       />
       <aside className="absolute bottom-0 right-0 top-auto max-h-[88vh] w-full overflow-y-auto border-t border-slate-800 bg-slate-950 shadow-glow sm:bottom-0 sm:top-0 sm:max-h-none sm:max-w-md sm:border-l sm:border-t-0">
         <div className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-800 bg-slate-950/95 px-5 py-4 backdrop-blur">
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h2 className="text-2xl font-black text-slate-50">{asset.symbol}</h2>
               <span className="rounded border border-slate-700 px-2 py-0.5 text-xs font-semibold uppercase text-slate-400">
                 {asset.assetType}
               </span>
             </div>
-            <p className="mt-1 text-sm text-slate-400">{asset.name}</p>
+            <p className="mt-1 truncate text-sm text-slate-400">{asset.name}</p>
+            <p className="mt-1 text-xs text-slate-600">{portfolioName}</p>
           </div>
           <button
             type="button"
@@ -47,7 +65,12 @@ export function AssetDrawer({ asset, onClose }: AssetDrawerProps) {
 
         <div className="space-y-5 px-5 py-5">
           <div className="rounded-md border border-slate-800 bg-slate-900/50 p-4">
-            <div className="text-sm text-slate-500">Latest price</div>
+            <div className="flex items-center justify-between gap-3 text-sm text-slate-500">
+              <span>Latest price</span>
+              <span className="rounded border border-slate-800 px-2 py-0.5 text-[11px] font-semibold uppercase text-slate-400">
+                {timeframe} return
+              </span>
+            </div>
             <div className="mt-2 flex items-end justify-between gap-4">
               <div className="text-3xl font-black text-white">${asset.price.toFixed(2)}</div>
               <div
@@ -63,9 +86,18 @@ export function AssetDrawer({ asset, onClose }: AssetDrawerProps) {
 
           <div className="grid grid-cols-2 gap-3">
             <Metric label="Portfolio weight" value={`${asset.weightPct.toFixed(1)}%`} />
+            <Metric label="Return contribution" value={formatInsightPercent(contribution)} />
             <Metric label="Sector" value={asset.sector} />
+            <Metric label="Sector rank" value={sectorRank ? `${sectorRank} / ${sectorPeerCount}` : "-"} />
             <Metric label="Market cap" value={formatCompactCurrency(asset.marketCap)} />
             <Metric label="Volume" value={formatCompactNumber(asset.volume)} />
+          </div>
+
+          <div className="rounded-md border border-slate-800 bg-slate-900/45 p-4">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Portfolio insight
+            </div>
+            <p className="text-sm leading-5 text-slate-200">{insight}</p>
           </div>
 
           <div className="rounded-md border border-slate-800 bg-slate-900/40 p-4">
@@ -87,6 +119,11 @@ export function AssetDrawer({ asset, onClose }: AssetDrawerProps) {
       </aside>
     </div>
   );
+}
+
+function formatInsightPercent(value: number) {
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${value.toFixed(2)}%`;
 }
 
 function Metric({ label, value }: { label: string; value: string }) {

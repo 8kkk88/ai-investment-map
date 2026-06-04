@@ -16,7 +16,7 @@ export function SearchBox({ assets, onSelect }: SearchBoxProps) {
   const results = useMemo(() => searchHeatmapAssets(assets, query), [assets, query]);
 
   return (
-    <div className="relative min-w-0 flex-1">
+    <div className="relative w-full min-w-0 flex-1">
       <label className="flex flex-col gap-1">
         <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-500">
           Search
