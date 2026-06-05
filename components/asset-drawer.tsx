@@ -10,6 +10,7 @@ type AssetDrawerProps = {
   portfolioName: string;
   sectorRank: number;
   sectorPeerCount: number;
+  dataStatus: string;
   onClose: () => void;
 };
 
@@ -19,6 +20,7 @@ export function AssetDrawer({
   portfolioName,
   sectorRank,
   sectorPeerCount,
+  dataStatus,
   onClose
 }: AssetDrawerProps) {
   if (!asset) {
@@ -52,6 +54,7 @@ export function AssetDrawer({
             </div>
             <p className="mt-1 truncate text-sm text-slate-400">{asset.name}</p>
             <p className="mt-1 text-xs text-slate-600">{portfolioName}</p>
+            <p className="mt-1 text-xs text-slate-600">{dataStatus}</p>
           </div>
           <button
             type="button"
@@ -112,8 +115,8 @@ export function AssetDrawer({
           </div>
 
           <p className="text-xs leading-5 text-slate-500">
-            Demo data only. This frontend MVP uses local mock data and does not provide investment
-            advice or real-time market prices.
+            Demo data only. This frontend MVP uses simulated provider data and does not provide
+            investment advice, portfolio recommendations, or real-time market prices.
           </p>
         </div>
       </aside>

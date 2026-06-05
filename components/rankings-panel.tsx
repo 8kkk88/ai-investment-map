@@ -3,11 +3,13 @@
 import { useMemo, useState } from "react";
 import { formatPercent } from "@/lib/format";
 import type { HeatmapAsset } from "@/types/market";
+import type { MarketMovers } from "@/lib/market-data/types";
 
 type RankingType = "gainers" | "losers" | "holdings";
 
 type RankingsPanelProps = {
   assets: HeatmapAsset[];
+  rankings?: MarketMovers;
   onSelect: (asset: HeatmapAsset) => void;
 };
 
@@ -17,10 +19,22 @@ const rankingTabs: { label: string; value: RankingType }[] = [
   { label: "Largest Holdings", value: "holdings" }
 ];
 
-export function RankingsPanel({ assets, onSelect }: RankingsPanelProps) {
+export function RankingsPanel({ assets, rankings, onSelect }: RankingsPanelProps) {
   const [activeTab, setActiveTab] = useState<RankingType>("gainers");
 
   const rows = useMemo(() => {
+    if (rankings) {
+      if (activeTab === "gainers") {
+        return rankings.topGainers;
+      }
+
+      if (activeTab === "losers") {
+        return rankings.topLosers;
+      }
+
+      return rankings.largestHoldings;
+    }
+
     const sorted = [...assets];
 
     if (activeTab === "gainers") {
@@ -36,7 +50,7 @@ export function RankingsPanel({ assets, onSelect }: RankingsPanelProps) {
     }
 
     return sorted.slice(0, 8);
-  }, [activeTab, assets]);
+  }, [activeTab, assets, rankings]);
 
   return (
     <aside id="rankings" className="scroll-mt-3 rounded-md border border-slate-800 bg-panel/90 p-3 shadow-glow">

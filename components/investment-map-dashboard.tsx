@@ -1,9 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { portfolios } from "@/data/mock-market";
-import { getHeatmapAssets, getPortfolioBySlug } from "@/lib/market";
 import { formatPercent } from "@/lib/format";
+import { getPortfolios } from "@/lib/market";
+import {
+  getAssetDetailContext,
+  getDashboardData,
+  toUiPortfolio
+} from "@/lib/market-data/dataService";
 import type { HeatmapAsset, Sector, Timeframe } from "@/types/market";
 import { AssetDrawer } from "@/components/asset-drawer";
 import { FilterChips } from "@/components/filter-chips";
@@ -15,24 +19,27 @@ import { SearchBox } from "@/components/search-box";
 import { TimeframeTabs } from "@/components/timeframe-tabs";
 
 export function InvestmentMapDashboard() {
-  const [selectedPortfolioSlug, setSelectedPortfolioSlug] = useState(portfolios[0].slug);
+  const portfolioOptions = useMemo(() => getPortfolios(), []);
+  const [selectedPortfolioSlug, setSelectedPortfolioSlug] = useState(
+    () => portfolioOptions[0]?.slug ?? "openai-ecosystem"
+  );
   const [timeframe, setTimeframe] = useState<Timeframe>("daily");
   const [selectedSector, setSelectedSector] = useState<Sector | "all">("all");
   const [selectedAsset, setSelectedAsset] = useState<HeatmapAsset | null>(null);
 
-  const portfolio = useMemo(() => getPortfolioBySlug(selectedPortfolioSlug), [selectedPortfolioSlug]);
-  const portfolioAssets = useMemo(() => getHeatmapAssets(portfolio, timeframe), [portfolio, timeframe]);
-  const sectors = useMemo(
-    () => Array.from(new Set(portfolioAssets.map((asset) => asset.sector))).sort(),
-    [portfolioAssets]
+  const dashboardData = useMemo(
+    () =>
+      getDashboardData({
+        portfolioSlug: selectedPortfolioSlug,
+        timeframe,
+        sector: selectedSector
+      }),
+    [selectedPortfolioSlug, selectedSector, timeframe]
   );
-  const heatmapAssets = useMemo(() => {
-    if (selectedSector === "all") {
-      return portfolioAssets;
-    }
-
-    return portfolioAssets.filter((asset) => asset.sector === selectedSector);
-  }, [portfolioAssets, selectedSector]);
+  const portfolio = useMemo(() => toUiPortfolio(dashboardData.portfolio), [dashboardData.portfolio]);
+  const portfolioAssets = dashboardData.portfolioAssets;
+  const heatmapAssets = dashboardData.heatmapAssets;
+  const sectors = dashboardData.sectors as Sector[];
 
   const totalWeight = useMemo(
     () => heatmapAssets.reduce((sum, asset) => sum + asset.weightPct, 0),
@@ -55,16 +62,10 @@ export function InvestmentMapDashboard() {
       return null;
     }
 
-    const sectorPeers = portfolioAssets
-      .filter((asset) => asset.sector === selectedAsset.sector)
-      .sort((a, b) => b.returnPct - a.returnPct);
-    const sectorRank = sectorPeers.findIndex((asset) => asset.id === selectedAsset.id) + 1;
-
-    return {
-      sectorRank,
-      sectorPeerCount: sectorPeers.length
-    };
+    return getAssetDetailContext(portfolioAssets, selectedAsset.id);
   }, [portfolioAssets, selectedAsset]);
+  const dataStatusLabel = dashboardData.metadata.isSimulated ? "Simulated data" : "Provider data";
+  const asOfLabel = dashboardData.metadata.asOf.replace("T", " ").replace(".000Z", " UTC");
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-ink text-slate-100">
@@ -82,12 +83,23 @@ export function InvestmentMapDashboard() {
                 A dark-mode AI ecosystem treemap. Tile size follows portfolio weight; tile color
                 follows selected period return.
               </p>
+              <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] font-semibold text-slate-500">
+                <span className="rounded border border-slate-800 bg-slate-950/70 px-2 py-0.5">
+                  {dataStatusLabel}
+                </span>
+                <span className="rounded border border-slate-800 bg-slate-950/70 px-2 py-0.5">
+                  As of {asOfLabel}
+                </span>
+                <span className="rounded border border-slate-800 bg-slate-950/70 px-2 py-0.5">
+                  {dashboardData.metadata.priceAdjustmentPolicy} prices
+                </span>
+              </div>
             </div>
 
             <div className="grid w-full min-w-0 max-w-full flex-[2] grid-cols-1 gap-3 md:grid-cols-[minmax(240px,1fr)_240px_250px] xl:max-w-5xl">
               <SearchBox assets={heatmapAssets} onSelect={setSelectedAsset} />
               <PortfolioSelector
-                portfolios={portfolios}
+                portfolios={portfolioOptions}
                 selectedSlug={selectedPortfolioSlug}
                 onChange={setSelectedPortfolioSlug}
               />
@@ -131,7 +143,11 @@ export function InvestmentMapDashboard() {
             timeframe={timeframe}
             onSelect={setSelectedAsset}
           />
-          <RankingsPanel assets={heatmapAssets} onSelect={setSelectedAsset} />
+          <RankingsPanel
+            assets={heatmapAssets}
+            rankings={dashboardData.rankings}
+            onSelect={setSelectedAsset}
+          />
         </section>
       </div>
 
@@ -141,6 +157,7 @@ export function InvestmentMapDashboard() {
         portfolioName={portfolio.name}
         sectorRank={selectedAssetContext?.sectorRank ?? 0}
         sectorPeerCount={selectedAssetContext?.sectorPeerCount ?? 0}
+        dataStatus={dataStatusLabel}
         onClose={() => setSelectedAsset(null)}
       />
     </main>

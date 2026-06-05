@@ -18,6 +18,7 @@ This is not an investment product. All market data is simulated/local demo data,
 - Asset search
 - Asset drawer with portfolio contribution insight
 - Desktop-first layout with mobile demo support
+- Phase 2.1 normalized market data provider abstraction
 
 Not included:
 
@@ -28,6 +29,17 @@ Not included:
 - Real market data feeds
 - Broker integration or trading
 - Investment advice
+
+## Data Provider Architecture
+
+Phase 2.1 adds a normalized market data layer while keeping the product in simulated mode by
+default. The app now has a provider interface, a simulated `mockProvider`, a
+`realProviderPlaceholder`, fallback metadata, and contract safety checks.
+
+This release still does not connect to any real market data API. Provider API keys must never be
+stored in `NEXT_PUBLIC_*` variables or committed files. AI portfolios are model portfolios /
+ecosystem baskets for product demonstration and do not represent official holdings from OpenAI,
+Anthropic, Nvidia, or any other company.
 
 ## Tech Stack
 
@@ -84,6 +96,7 @@ This runs:
 
 - `next typegen && tsc --noEmit`
 - `eslint .`
+- `node scripts/market-data-contract-check.mjs`
 - `next build`
 
 ## Demo Flow

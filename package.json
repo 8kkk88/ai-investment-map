@@ -7,7 +7,8 @@
     "build": "next build",
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit",
-    "check": "npm run typecheck && npm run lint && npm run build",
+    "market-data:contract": "node scripts/market-data-contract-check.mjs",
+    "check": "npm run typecheck && npm run lint && npm run market-data:contract && npm run build",
     "start": "next start"
   },
   "dependencies": {
