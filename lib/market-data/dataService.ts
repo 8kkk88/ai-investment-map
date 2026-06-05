@@ -53,11 +53,29 @@ export function getDashboardData({
   timeframe,
   sector = "all"
 }: DashboardOptions): DashboardData {
-  const provider = resolveMarketDataProvider();
+  return getDashboardDataWithProvider(resolveMarketDataProvider(), {
+    portfolioSlug,
+    timeframe,
+    sector
+  });
+}
+
+export function getDashboardDataWithProvider(
+  provider: MarketDataProvider,
+  {
+    portfolioSlug,
+    timeframe,
+    sector = "all"
+  }: DashboardOptions,
+  fallbackReasonOverride: FallbackReason = "none"
+): DashboardData {
   const providerPortfolio = provider.getPortfolioHoldings(portfolioSlug);
-  const needsFallback = shouldFallback(providerPortfolio.metadata);
-  const activeProvider = needsFallback ? mockProvider : provider;
-  const activePortfolio = needsFallback ? mockProvider.getPortfolioHoldings(portfolioSlug) : providerPortfolio;
+  const portfolioFallbackReason = shouldFallback(providerPortfolio.metadata)
+    ? providerPortfolio.metadata.fallbackReason
+    : "none";
+  const activeProvider = portfolioFallbackReason === "none" ? provider : mockProvider;
+  const activePortfolio =
+    portfolioFallbackReason === "none" ? providerPortfolio : mockProvider.getPortfolioHoldings(portfolioSlug);
   const assetsResult = activeProvider.getAssets();
   const portfolio = activePortfolio.data.holdings.length
     ? activePortfolio.data
@@ -68,10 +86,32 @@ export function getDashboardData({
     interval: "1day",
     priceAdjustmentPolicy: defaultPriceAdjustmentPolicy
   });
+  const combinedMetadata = combineMetadata([
+    activePortfolio.metadata,
+    assetsResult.metadata,
+    quoteResult.metadata,
+    barsResult.metadata
+  ]);
+  const dataFallbackReason =
+    activeProvider.id !== "simulated" && shouldFallback(combinedMetadata)
+      ? combinedMetadata.fallbackReason
+      : "none";
+
+  if (dataFallbackReason !== "none") {
+    return getDashboardDataWithProvider(mockProvider, {
+      portfolioSlug,
+      timeframe,
+      sector
+    }, dataFallbackReason);
+  }
+
   const metadata = mergeMetadata({
-    primary: activePortfolio.metadata,
-    fallbackReason: needsFallback ? providerPortfolio.metadata.fallbackReason : "none",
-    dataQuality: needsFallback ? "simulated" : activePortfolio.metadata.dataQuality
+    primary: combinedMetadata,
+    fallbackReason: fallbackReasonOverride !== "none" ? fallbackReasonOverride : portfolioFallbackReason,
+    dataQuality:
+      fallbackReasonOverride === "none" && portfolioFallbackReason === "none"
+        ? combinedMetadata.dataQuality
+        : "simulated"
   });
   const portfolioAssets = buildHeatmapAssets({
     assets: assetsResult.data,
@@ -202,8 +242,80 @@ function shouldFallback(metadata: MarketDataMetadata) {
   return (
     metadata.dataQuality === "notConfigured" ||
     metadata.dataQuality === "providerError" ||
+    metadata.dataQuality === "rateLimited" ||
     metadata.dataFreshness === "unavailable"
   );
+}
+
+function combineMetadata(metadataList: MarketDataMetadata[]): MarketDataMetadata {
+  const primary = metadataList[0];
+  const fallbackReason = metadataList.find((metadata) => metadata.fallbackReason !== "none")?.fallbackReason ?? "none";
+  const dataQuality = readWorstDataQuality(metadataList);
+  const dataFreshness = readWorstFreshness(metadataList);
+  const asOf = metadataList
+    .map((metadata) => metadata.asOf)
+    .filter(Boolean)
+    .sort()
+    .at(-1) ?? primary.asOf;
+
+  return {
+    ...primary,
+    asOf,
+    isDelayed: metadataList.some((metadata) => metadata.isDelayed),
+    fallbackReason,
+    dataQuality,
+    dataFreshness,
+    priceAdjustmentPolicy: metadataList.find((metadata) => metadata.source !== "simulated")?.priceAdjustmentPolicy
+      ?? primary.priceAdjustmentPolicy
+  };
+}
+
+function readWorstDataQuality(metadataList: MarketDataMetadata[]): DataQualityStatus {
+  if (metadataList.some((metadata) => metadata.dataQuality === "providerError")) {
+    return "providerError";
+  }
+
+  if (metadataList.some((metadata) => metadata.dataQuality === "rateLimited")) {
+    return "rateLimited";
+  }
+
+  if (metadataList.some((metadata) => metadata.dataQuality === "notConfigured")) {
+    return "notConfigured";
+  }
+
+  if (metadataList.some((metadata) => metadata.dataQuality === "unavailable")) {
+    return "unavailable";
+  }
+
+  if (metadataList.some((metadata) => metadata.dataQuality === "partial")) {
+    return "partial";
+  }
+
+  if (metadataList.some((metadata) => metadata.dataQuality === "stale")) {
+    return "stale";
+  }
+
+  if (metadataList.every((metadata) => metadata.dataQuality === "simulated")) {
+    return "simulated";
+  }
+
+  return "complete";
+}
+
+function readWorstFreshness(metadataList: MarketDataMetadata[]): MarketDataMetadata["dataFreshness"] {
+  if (metadataList.some((metadata) => metadata.dataFreshness === "unavailable")) {
+    return "unavailable";
+  }
+
+  if (metadataList.some((metadata) => metadata.dataFreshness === "partial")) {
+    return "partial";
+  }
+
+  if (metadataList.some((metadata) => metadata.dataFreshness === "stale")) {
+    return "stale";
+  }
+
+  return "fresh";
 }
 
 function mergeMetadata({

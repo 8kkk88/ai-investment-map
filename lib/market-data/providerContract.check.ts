@@ -30,6 +30,14 @@ const dashboardResult = getDashboardData({
 const fallbackProvider: MarketDataProvider = resolveMarketDataProvider("provider");
 const computedReturns = computeReturns(mockBarsResult.data, "adjusted");
 const fallbackHeatmapAssets: HeatmapAsset[] = dashboardResult.heatmapAssets;
+const providerMethodNames: Array<keyof MarketDataProvider> = [
+  "id",
+  "mode",
+  "getAssets",
+  "getQuotes",
+  "getHistoricalBars",
+  "getPortfolioHoldings"
+];
 
 export const marketDataProviderContractCheck = {
   providerContracts,
@@ -40,5 +48,6 @@ export const marketDataProviderContractCheck = {
   placeholderResult,
   fallbackProvider,
   computedReturns,
-  fallbackHeatmapAssets
+  fallbackHeatmapAssets,
+  providerMethodNames
 };

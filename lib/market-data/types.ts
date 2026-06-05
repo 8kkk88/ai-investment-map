@@ -24,9 +24,15 @@ export type FallbackReason =
   | "none"
   | "provider_not_configured"
   | "provider_error"
+  | "provider_timeout"
   | "rate_limited"
   | "partial_data"
-  | "insufficient_data";
+  | "insufficient_data"
+  | "invalid_symbol"
+  | "stale_data"
+  | "provider_parse_error"
+  | "provider_rights_blocked"
+  | "network_error";
 
 export type PriceAdjustmentPolicy = "adjusted" | "raw";
 

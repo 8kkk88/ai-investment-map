@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { formatPercent } from "@/lib/format";
 import { getPortfolios } from "@/lib/market";
 import {
@@ -8,6 +8,7 @@ import {
   getDashboardData,
   toUiPortfolio
 } from "@/lib/market-data/dataService";
+import type { DashboardData } from "@/lib/market-data/types";
 import type { HeatmapAsset, Sector, Timeframe } from "@/types/market";
 import { AssetDrawer } from "@/components/asset-drawer";
 import { FilterChips } from "@/components/filter-chips";
@@ -27,7 +28,7 @@ export function InvestmentMapDashboard() {
   const [selectedSector, setSelectedSector] = useState<Sector | "all">("all");
   const [selectedAsset, setSelectedAsset] = useState<HeatmapAsset | null>(null);
 
-  const dashboardData = useMemo(
+  const fallbackDashboardData = useMemo(
     () =>
       getDashboardData({
         portfolioSlug: selectedPortfolioSlug,
@@ -36,6 +37,39 @@ export function InvestmentMapDashboard() {
       }),
     [selectedPortfolioSlug, selectedSector, timeframe]
   );
+  const [serverDashboardData, setServerDashboardData] = useState<DashboardData | null>(null);
+  const dashboardData = serverDashboardData ?? fallbackDashboardData;
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    setServerDashboardData(null);
+    void fetch("/api/internal/market-data/dashboard", {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        portfolioSlug: selectedPortfolioSlug,
+        timeframe,
+        sector: selectedSector
+      }),
+      signal: controller.signal
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: DashboardData | null) => {
+        if (data) {
+          setServerDashboardData(data);
+        }
+      })
+      .catch(() => {
+        setServerDashboardData(null);
+      });
+
+    return () => controller.abort();
+  }, [selectedPortfolioSlug, selectedSector, timeframe]);
+
   const portfolio = useMemo(() => toUiPortfolio(dashboardData.portfolio), [dashboardData.portfolio]);
   const portfolioAssets = dashboardData.portfolioAssets;
   const heatmapAssets = dashboardData.heatmapAssets;
@@ -64,7 +98,7 @@ export function InvestmentMapDashboard() {
 
     return getAssetDetailContext(portfolioAssets, selectedAsset.id);
   }, [portfolioAssets, selectedAsset]);
-  const dataStatusLabel = dashboardData.metadata.isSimulated ? "Simulated data" : "Provider data";
+  const dataStatusLabel = formatDataStatus(dashboardData);
   const asOfLabel = dashboardData.metadata.asOf.replace("T", " ").replace(".000Z", " UTC");
 
   return (
@@ -162,6 +196,32 @@ export function InvestmentMapDashboard() {
       />
     </main>
   );
+}
+
+function formatDataStatus(dashboardData: DashboardData) {
+  const metadata = dashboardData.metadata;
+
+  if (metadata.isSimulated && metadata.fallbackReason !== "none") {
+    return "Simulated fallback";
+  }
+
+  if (metadata.isSimulated) {
+    return "Simulated data";
+  }
+
+  if (metadata.dataQuality === "partial" || metadata.dataFreshness === "partial") {
+    return "Partial provider data";
+  }
+
+  if (metadata.dataFreshness === "stale") {
+    return "Stale provider data";
+  }
+
+  if (metadata.isDelayed) {
+    return "Delayed provider data";
+  }
+
+  return "Provider data";
 }
 
 function Stat({
